@@ -28,6 +28,7 @@ def main():
     parser.add_argument('--folder_gt', type=str, default=None, help='input ground-truth test image folder')
     parser.add_argument('--tile', type=int, default=None, help='Tile size, None for no tile during testing (testing as a whole)')
     parser.add_argument('--tile_overlap', type=int, default=32, help='Overlapping of different tiles')
+    parser.add_argument('--output_directory', type=str, default=None, help='Directory to save output')
     args = parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -78,7 +79,7 @@ def main():
         if output.ndim == 3:
             output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))  # CHW-RGB to HCW-BGR
         output = (output * 255.0).round().astype(np.uint8)  # float32 to uint8
-        cv2.imwrite(f'{save_dir}/{imgname}_SwinIR.png', output)
+        cv2.imwrite(f'{save_dir}/{imgname}.png', output)
 
         # evaluate psnr/ssim/psnr_b
         if img_gt is not None:
@@ -181,14 +182,14 @@ def define_model(args):
 def setup(args):
     # 001 classical image sr/ 002 lightweight image sr
     if args.task in ['classical_sr', 'lightweight_sr']:
-        save_dir = f'results/swinir_{args.task}_x{args.scale}'
+        save_dir = f'{arg.output_directory}/results/swinir_{args.task}_x{args.scale}'
         folder = args.folder_gt
         border = args.scale
         window_size = 8
 
     # 003 real-world image sr
     elif args.task in ['real_sr']:
-        save_dir = f'results/swinir_{args.task}_x{args.scale}'
+        save_dir = f'{arg.output_directory}/results/swinir_{args.task}_x{args.scale}'
         if args.large_model:
             save_dir += '_large'
         folder = args.folder_lq
@@ -197,14 +198,14 @@ def setup(args):
 
     # 004 grayscale image denoising/ 005 color image denoising
     elif args.task in ['gray_dn', 'color_dn']:
-        save_dir = f'results/swinir_{args.task}_noise{args.noise}'
+        save_dir = f'{arg.output_directory}/results/swinir_{args.task}_noise{args.noise}'
         folder = args.folder_gt
         border = 0
         window_size = 8
 
     # 006 JPEG compression artifact reduction
     elif args.task in ['jpeg_car']:
-        save_dir = f'results/swinir_{args.task}_jpeg{args.jpeg}'
+        save_dir = f'{arg.output_directory}/results/swinir_{args.task}_jpeg{args.jpeg}'
         folder = args.folder_gt
         border = 0
         window_size = 7
@@ -230,7 +231,9 @@ def get_image_pair(args, path):
     elif args.task in ['gray_dn']:
         img_gt = cv2.imread(path, cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.
         np.random.seed(seed=0)
-        img_lq = img_gt + np.random.normal(0, args.noise / 255., img_gt.shape)
+        
+        #img_lq = img_gt + np.random.normal(0, args.noise / 255., img_gt.shape)
+        img_lq = cv2.imread(f'{args.folder_lq}/{imgname}{imgext}', cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.
         img_gt = np.expand_dims(img_gt, axis=2)
         img_lq = np.expand_dims(img_lq, axis=2)
 
